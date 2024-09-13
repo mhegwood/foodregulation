@@ -1,0 +1,636 @@
+---
+title: "Supplementary Software for Aquaculture is more regulated than any other food sector in the United States by Hegwood et al"
+author: "Margaret Hegwood"
+output: html_document
+---
+#load necessary libraries
+```{r, warning = FALSE}
+library(readxl)
+library(tidyr)
+library(dplyr)
+library(ggplot2)
+library(scales)
+library(geomtextpath)
+library(reshape2)
+library(ggrepel)
+library(patchwork)
+library(gridExtra)
+library(stringr)
+library(ggpubr)
+library(forcats)
+```
+
+#Create custom figure colors
+```{r}
+custom_colors <- c("Aquaculture" = "#0D98BA", "Crop Farming" = "#EC9706", "Fishing" = "#0000dc", "Hunting and Trapping" = "#004D40" , "Terrestrial Animal Farming" = "#A52A2A")
+```
+
+#MAIN TEXT FIGURES
+
+#Figure 1: (A) Direct regulations over time for food industries (B) Direct regulations vs emissions intensity
+```{r}
+#Figure 1B
+#Load Figure 1A data and Food Industries
+fig1 <- inner_join(read_xlsx("Supplementary_Data_1.xlsx", "Figure 1A",  trim_ws = F),
+                   read_xlsx("Supplementary_Data_1.xlsx", "Food Industries",  trim_ws = F), 
+                   by = "industry_code")
+
+fig1$date <- as.Date(fig1$date) #Make `date` in date format 
+fig1$industry_code <- as.integer(fig1$industry_code) #make industry code integer format
+
+#Sector Average data
+average_data <- fig1 %>%
+  group_by(date, sector) %>%
+  dplyr::summarise(Average = mean(total_regulations)) %>%
+  ungroup()
+
+f1a <- fig1 %>%
+  ggplot() + 
+  geom_line(aes(x = date, y = total_regulations, group = industry_code, color = sector), alpha = 0.2) + 
+  geom_line(data = average_data, aes(x = date, y = Average, color = sector), alpha = 1, size = 1) + 
+  scale_color_manual(values = custom_colors) + 
+  ylab("Direct Regulations") + 
+  xlab("Year") +
+  scale_x_date(date_labels = "%Y", breaks = seq(as.Date("1970-01-01"), max(fig1$date), by = '10 years')) +
+  theme_bw() + 
+  scale_y_continuous(labels = comma) +
+  theme(legend.position = c(.05, .95),
+        legend.justification = c("left", "top"),
+        legend.box.just = "left",
+        legend.margin = margin(1,1,1,1),
+        legend.key.size = unit(1, 'cm'), #change legend key size
+        legend.key.height = unit(0.25, 'cm'), #change legend key height
+        legend.key.width = unit(0.25, 'cm'), #change legend key width
+        legend.title = element_text(size=12, face = "bold"), #change legend title font size
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 18), 
+        legend.text = element_text(size = 12)) + #change legend text font size
+  labs(color = "Food Sector") + 
+  geom_text_repel(data = fig1 %>% 
+                     filter(date == "2010-01-01", industry_name == "Finfish Farming and Fish Hatcheries"), 
+                   aes(x = date, y = total_regulations), 
+                   label = c("Finfish Farming"), 
+                   color = "#0D98BA", 
+                   nudge_x = -3000, 
+                   nudge_y = 750, 
+                   size = 4) + 
+   geom_text_repel(data = fig1 %>% 
+                     filter(date == "2015-01-01", industry_name == "Shellfish Farming"), 
+                   aes(x = date, y = total_regulations), 
+                   label = c("Shellfish Farming"), 
+                   color = "#0D98BA", 
+                   nudge_x = -1500, 
+                   nudge_y = 4000, 
+                   size = 4) + 
+    geom_text_repel(data = fig1 %>% 
+                     filter(date == "2010-01-01", industry_name == "Other Aquaculture"), 
+                   aes(x = date, y = total_regulations), 
+                   label = c("Other Aquaculture"), 
+                   color = "#0D98BA", 
+                   nudge_x = 1000, 
+                   nudge_y = -8500, 
+                   size = 4) 
+  
+#Figure 1B
+footprint <- read_xlsx("Supplementary_Data_1.xlsx", "Figure 1B and S3",  trim_ws = F)
+footprint <- footprint %>%
+  mutate(across(c(product,sector, industry_code), ~ str_replace_all(., " ", " ")))
+
+#create average footprint by sector
+avg_footprint <- footprint %>% group_by(sector) %>%
+  summarize(avg = mean(ghg_median), 
+            avg2 = mean(total_regulations)) 
+
+
+f1b <- footprint %>% ggplot() + 
+  geom_point(aes(x = ghg_median, y =total_regulations, shape = author, color= sector), alpha = 0.2, size =2) +
+  geom_point(data = avg_footprint, aes(x=avg, y = avg2, color = sector), size = 4, shape = "diamond") +
+  theme_bw() + 
+  scale_shape_manual(values = c("circle", "square")) +
+    scale_color_manual(values = custom_colors) +
+  geom_text_repel(data = footprint %>% filter(product == "Bovine Meat (beef herd)"), aes(x = ghg_median, y = total_regulations), label = c("Beef"), color = "#A52A2A", nudge_x = -3, nudge_y = 10000) + 
+  geom_text_repel(data = footprint %>% filter(product == "Bovine Meat (dairy herd)"), aes(x = ghg_median, y = total_regulations), label = c("Dairy Beef"), color = "#A52A2A", nudge_x = -3, nudge_y = 3000) +
+   geom_text_repel(data = footprint %>% filter(product == "Milk"), aes(x = ghg_median, y = total_regulations), label = c("Milk"), color = "#A52A2A", nudge_x = 3, nudge_y = 3000)  +
+     geom_text_repel(data = footprint %>% filter(product == "Lamb & Mutton"), aes(x = ghg_median, y = total_regulations), label = c("Lamb & Mutton"), color = "#A52A2A", nudge_x = -3, nudge_y = 8000) + 
+     geom_text_repel(data = footprint %>% filter(product == "miscellaneous diadromous fishes (farmed)"), aes(x = ghg_median, y = total_regulations), label = c("Farmed Misc. Diadromous Fishes"), color = "#0D98BA", nudge_x = 3, nudge_y = 3000) + 
+  geom_text_repel(data = footprint %>% filter(product == "seaweeds (farmed)"), aes(x = ghg_median, y = total_regulations), label = c("Farmed Seaweeds"), color = "#0D98BA", nudge_x = 3, nudge_y = -3000) + 
+  geom_text_repel(data = footprint %>% filter(product == "flounders, halibuts, soles"), aes(x = ghg_median, y = total_regulations), label = c("Flounders, Halibuts, & Soles"), color = "#0000dc", nudge_x = 8, nudge_y = -3000) + 
+  geom_text_repel(data = footprint %>% filter(product == "herrings, sardines, anchovies"), aes(x = ghg_median, y = total_regulations), label = c("Herrings, Sardines, & Anchovies"), color = "#0000dc", nudge_x = -8, 
+             nudge_y = -6000) + 
+  geom_text_repel(data = footprint %>% filter(product == "Olive Oil"), aes(x = ghg_median, y = total_regulations), label = c("Olive Oil"), color = "#EC9706", nudge_x = 5, nudge_y = 3000) + 
+  geom_text_repel(data = footprint %>% filter(product == "Nuts"), aes(x = ghg_median, y = total_regulations), label = c("Nuts"), color = "#EC9706", nudge_x = -5, nudge_y = -3000) + 
+  theme(legend.position = "none", 
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 18), 
+        legend.text = element_text(size = 12), 
+        plot.caption = element_text(hjust = 0)) +
+  xlab(expression("Emissions (kg CO"[2]*"e/kg Product)")) + 
+  ylab("Direct Regulations") + 
+  ylim(c(-5000, 65000)) +
+    scale_y_continuous(labels = comma) +
+  labs(caption = str_wrap("Fig. 1 (A) Direct regulations from 1970 to 2020 for 44 food industries, with sector averages in bold. (B) Direct regula-tions in 2020 on food industries compared to their products GHG emissions intensities (squares (Poore & Nemecek, 2018), circles (Gephart et al, 2021)), with diamonds showing sector averages.", 120, whitespace_only = FALSE))
+
+
+f1_final <- ggarrange(f1a, f1b,
+          labels = c("A", "B"),
+          ncol = 1, nrow = 2)
+
+ggsave("Fig1_final_w_caption.pdf", f1_final,width = 8, height = 12, dpi = 300)
+
+```
+
+#Figure 1 Statistics
+```{r}
+#DESCRIPTIVE STATISTICS FIGURE 1A
+
+#Difference in sector regulations in 2020
+fig1_stat <- fig1 %>% filter(date == "2020-01-01")
+fig1_stat <- fig1_stat %>% group_by(sector) %>%
+  dplyr::summarise(avg_reg = mean(total_regulations), 
+                   sd_reg = sd(total_regulations)) 
+
+#Calculate difference from aquaculture
+fig1_stat <- fig1_stat %>% mutate(aqua_diff = 58596.1971/avg_reg )
+
+#Calculate difference from crops
+fig1_stat <- fig1_stat %>% mutate(crop_diff = 20423.7515/avg_reg)
+
+
+#TIME SERIES STATISTICS
+#Average total direct regulations by sector per year 
+fig1_stat_2 <-  fig1 %>%
+  group_by(sector, date) %>% 
+  dplyr::summarise(avg_reg = mean(total_regulations), 
+                   sd_reg = sd(total_regulations)) 
+
+#Annual percent change in regulations for each sector in each year
+aqua_avg_regulations <- fig1_stat_2 %>% group_by(sector) %>%
+  mutate(yoy = (log(avg_reg) - log(lag(avg_reg))) *100)  
+
+#Year-to-Year (yoy) average percent change in regulations by secgtor over the time period 1970-2020
+aqua_avg_regulations <- aqua_avg_regulations %>% group_by(sector) %>%
+  dplyr::summarise(yoy_avg = mean(yoy, na.rm = TRUE), 
+                   yoy_sd = sd(yoy, na.rm= TRUE)) 
+
+
+```
+
+#Figure 2: Total direct regulations by sector across federal agencies
+```{r}
+fig2 <-  inner_join(read_xlsx("Supplementary_Data_1.xlsx", "Figure 2 and S4",  trim_ws = F),
+                   read_xlsx("Supplementary_Data_1.xlsx", "Food Industries",  trim_ws = F), 
+                   by = "industry_code")
+
+avg_agency <- fig2 %>% group_by(sector, agency) %>%
+  summarize(avg = mean(total_regulations))
+
+#calculate the top five agencies for each industry
+top_group <- avg_agency %>% 
+  group_by(sector) %>%
+  slice_max(avg,n =6)
+
+#Filter out all top unique regulating agencies
+top_group <- unique(top_group$agency)
+
+
+#Add line function
+addline_format <- function(x,...){
+    gsub('\\s','\n',x)
+}
+
+
+#example crops (maize, soy, vegetables)
+f2 <- avg_agency %>%
+  ggplot(aes(x = sector, y = avg, fill = agency)) + 
+  geom_bar(stat = "identity", position = "stack") + 
+  theme_bw() + 
+  gghighlight::gghighlight(agency %in% top_group[c(1:10)], 
+                           label_key = agency, 
+                           use_group_by = FALSE,
+                           use_direct_label = FALSE) + 
+  scale_x_discrete(labels = addline_format(c("Aquaculture", "Crop Farming", "Fishing", "Hunting and Trapping", "Terrestrial Livestock Farming"))) + 
+  scale_fill_manual(values= c("#034937", "#0a88d1", "#090088", 
+                               "#064477", "#f4b655", "#7e3b26",
+                               "#dcc962","#c10821", "#279640","#4f7b85")) +
+  theme(legend.position = c(.95, .95),
+        legend.justification = c("right", "top"),
+        legend.box.just = "left",
+        legend.margin = margin(1,1,1,1),
+        legend.key.size = unit(1, 'cm'), #change legend key size
+        legend.key.height = unit(0.25, 'cm'), #change legend key height
+        legend.key.width = unit(0.25, 'cm'), #change legend key width
+        legend.title = element_text(size=12, face = "bold"), #change legend title font size
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 18), 
+        legend.text = element_text(size = 12), 
+        plot.caption = element_text(hjust = 0)) + #change legend text font size
+   xlab("Food Sector") + 
+   ylab("2020 Direct Regulations") + 
+   labs(fill = "Federal Government Agency") + 
+   scale_y_continuous(labels = comma) +
+   labs(caption = str_wrap("Fig. 2 Direct 2020 regulations from the top ten food industry regulating agencies are shown, with all other agencies aggregated in gray.", 200, whitespace_only = FALSE))
+ 
+ 
+ ggsave("Fig2_final_caption.pdf", f2, width = 12, height = 6, dpi = 300) 
+```
+
+
+#SUPPLEMENTARY FIGURES
+
+#Figure S1: Fraction of regulations from low probability documents
+```{r}
+figs1 <- inner_join(read_xlsx("Supplementary_Data_1.xlsx", "Figure S1",  trim_ws = F),
+                   read_xlsx("Supplementary_Data_1.xlsx", "Food Industries",  trim_ws = F), 
+                   by = "industry_code")
+  
+figs1$all_a <- as.character(figs1$all_a)
+figs1 <- figs1 %>% pivot_longer(cols = starts_with("a"), names_to = "prob", values_to = "regs")
+figs1$date = as.Date(figs1$date)
+figs1$regs = as.numeric(figs1$regs)
+figs1[is.na(figs1)] <- 0
+
+average_data <- figs1 %>%
+  group_by(date, sector, prob) %>%
+  summarise(Average = mean(regs, na.rm = TRUE))
+
+facet_labels <- c("all_a" = "All a", "a_0.10" = "a \u2265 0.1", "a_0.25" = "a \u2265 0.25", "a_0.5" = "a \u2265 0.5", "a_0.75" = "a \u2265 0.75", "a_0.9" = "a \u2265 0.9")
+
+s1 <- figs1 %>% ggplot() + 
+  geom_line(aes(x = date, y = regs, color = sector, group = industry_code), alpha = 0.2) + 
+  geom_line(data = average_data %>% filter(prob != "total7"), aes(x = date, y = Average, color = sector), alpha = 1) +
+  scale_x_date(date_labels = "%Y", breaks = seq(as.Date("1970-01-01"), max(figs1$date), by = '10 years')) +
+  scale_color_manual(values = custom_colors) +
+  theme_bw() +
+  facet_wrap(~prob, nrow = 3, ncol = 2, labeller = as_labeller(facet_labels)) + 
+   theme(legend.position = c(.025, 0.975),
+        legend.justification = c("left", "top"),
+        legend.box.just = "left",
+        legend.margin = margin(1,1,1,1),
+        legend.key.size = unit(0.01, 'cm'), #change legend key size
+        legend.key.height = unit(0.25, 'cm'), #change legend key height
+        legend.key.width = unit(0.25, 'cm'), #change legend key width
+        legend.title = element_text(size=12, face = "bold"), #change legend title font size
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size =18), 
+        legend.text = element_text(size = 12), 
+        strip.text = element_text(size = 16),
+        plot.caption = element_text(hjust = 0)) + #change legend text font size
+  labs(color = "Food Sector") +
+    scale_y_continuous(labels = comma) +
+  xlab("Year") + 
+  ylab("Direct Regulations") +
+  labs(caption = str_wrap("Direct regulations with different probability cutoffs. Here, we replicate the results from Figure 1a of our main text using different a_pyi values. The title of each figure represents the cutoff. For example, a ≥ 0.25 means that regulations from all documents with a probability greater than or equal to 0.25 were summed to calculate the direct regulations for each six-digit NAICS food industry. As the cutoff increases towards 1 (i.e., 100% probability) we observed an overall decrease in regulations for each industry, but consistent trends across industries.", 160, whitespace_only = FALSE))
+
+ggsave("FigS1_final_w_caption.png", s1, width = 10, height = 12, dpi = 300) 
+```
+
+#Figure S2: Total Regulations (Direct + Indirect) 
+```{r}
+#Load Supply-Utilization Spreadsheet from the Bureau of Economic Affairs (BEA)
+bea_2017 <- read_xlsx("Supplementary_Data_1.xlsx", "BEA USE Table",  trim_ws = F)
+
+colnames(bea_2017) <- bea_2017[5,] #rename columns correctly using values in row 4
+bea_2017 <- bea_2017[-c(1:5),-2] #delete rows 1 through 4, as well as column 2
+bea_2017 <- mutate_at(bea_2017, vars(-matches("Code")), as.numeric) 
+
+#filter out construction data and make one large construction category (Any codes that start with 23)
+construction <- bea_2017 %>%
+  filter(grepl("^23", Code)) %>%
+  summarise(across(-c(Code), sum)) 
+names1 <- colnames(construction)
+construction <- construction %>% mutate(Code = 23)
+construction <- construction[, c("Code", names1)]
+
+#filter our real estate data and make one large real estate category (Codes = 531HST, 531ORE)
+realEstate <- bea_2017 %>%
+  filter(grepl("^531", Code)) %>%
+  summarise(across(-c(Code), sum))
+names2 <- colnames(realEstate)
+realEstate <- realEstate %>% mutate(Code = 531)
+realEstate <- realEstate[, c("Code", names2)]
+
+#remove original construction data from I-O data
+bea_2017 <- bea_2017 %>% filter(!grepl("^23", Code), !grepl("^531", Code))
+
+#add summarized row of construction data back to io weights
+bea_2017  <- rbind(bea_2017, construction)
+bea_2017  <- rbind(bea_2017, realEstate)
+
+#Adjust construction (23) and real estate (531) columns
+bea_2017 <- bea_2017 %>% mutate(`23` = rowSums(select(.,starts_with("23"))))
+bea_2017 <- bea_2017 %>% mutate(`531` = rowSums(select(.,starts_with("531"))))
+
+bea_2017 <- bea_2017 %>% pivot_longer(cols = -c(`Code`), names_to = "Code2", values_to = "contribute")
+
+#CONVERT BEA CODES TO NAICS 2017 codes
+bea_to_naics <- read_xlsx("Supplementary_Data_1.xlsx", "BEA to NAICS Crosswalk",  trim_ws = F)
+bea_to_naics <- separate_rows(bea_to_naics, `industry_code_2017`, sep = ", ") 
+bea_to_naics <- bea_to_naics %>% filter(`industry_code_2017` != "NA")
+
+#Replace NAICS 2017 codes with NAICS 2007 codes to match with RegData
+bea_2017_to_2007 <- read_xlsx("Supplementary_Data_1.xlsx", "NAICS Crosswalk",  trim_ws = F)
+bea_2017_to_2007$industry_code_2017 <- as.character(bea_2017_to_2007$industry_code_2017)
+bea_to_naics <- full_join(bea_to_naics, bea_2017_to_2007, by = "industry_code_2017", relationship = "many-to-many")
+colnames(bea_to_naics)[1] <- c("Code")
+
+#Merge BEA 2017 with NAICS codes to transfer Code1
+bea_2017_naics <- inner_join(bea_to_naics, bea_2017, by = "Code", relationship = "many-to-many") #results in many-to-many warning, this is expected
+
+#Remove unnecessary descriptor columns
+bea_2017_naics <- bea_2017_naics[,c("industry_code", "contribute", "Code2")]
+
+#Rename columns to convert Code2 
+colnames(bea_2017_naics) <- c("NAICS1", "contribute", "Code")
+
+#Merge BEA 2017 with NAICS codes a second time to transfer Code2 (renamed Code in the line above to do the join)
+bea_2017_naics <- inner_join(bea_2017_naics, bea_to_naics[, c("industry_code", "Code")], by = "Code", relationship = "many-to-many")
+
+#Delete old BEA columns
+bea_2017_naics <- bea_2017_naics[,c("NAICS1", "industry_code", "contribute")]
+
+#Rename columns
+colnames(bea_2017_naics) <- c("NAICS1", "NAICS2", "contribute")
+
+#Split contribution equally amongst NAICS codes
+test <- bea_2017_naics 
+
+test2 <- as.data.frame(table(test$NAICS1, test$contribute))
+colnames(test2) <-  c("NAICS1", "contribute", "freq")
+test$NAICS1 <- as.factor(test$NAICS1)
+test$contribute <- as.factor(test$contribute)
+
+test <- full_join(test, test2, by = c("NAICS1", "contribute"))
+
+test <- test %>% mutate(final_contribute = as.numeric(contribute)/freq)
+
+bea_2017_naics <- test[, c("NAICS1", "NAICS2", "final_contribute")] 
+
+colnames(bea_2017_naics) <- c("NAICS1", "NAICS2", "contribute")                                       
+                                       
+
+#Create a function that replaces any value >0 with 1
+replace_greater_than_0 <- function(x) {
+  ifelse(x > 0, 1, x)
+}
+
+#Create a new column that preserves the original values of the contribute column
+bea_2017_naics <- bea_2017_naics %>% mutate(contribute2 = contribute)
+
+cols_to_modify <- colnames(bea_2017_naics[,c(3)])
+
+bea_2017_naics[cols_to_modify] <- sapply(bea_2017_naics[,cols_to_modify], replace_greater_than_0) #turn all numeric values to 1 when >0
+
+#Merge direct and indirect regulations
+indirect_regulations <- bea_2017_naics 
+
+colnames(indirect_regulations) <- c("industry_code", "NAICS2", "contribute", "contribute2")
+
+indirect_regulations <- indirect_regulations  %>% filter(substr(NAICS2, 1,2) == 11) #we only need indirect regulations for the food industry
+
+temp <- read_xlsx("Supplementary_Data_1.xlsx", "Figure 1A",  trim_ws = F)
+temp$industry_code <- as.factor(temp$industry_code)
+
+indirect_regulations <- inner_join(indirect_regulations, temp, by = "industry_code")
+
+colnames(indirect_regulations) <- c("industry_indirect", "industry_code", "contribute", "contribute2", "date", "total")
+
+#Additive Regulations Approach
+indirect_regulations <- indirect_regulations %>% mutate(indirect_regulations = total*contribute)
+
+#Multiplicative Regulations Approach (Staples et al 2022)
+indirect_regulations <- indirect_regulations %>% 
+  group_by(industry_code, date) %>%
+  mutate(indirect_regulations2 = total*contribute*contribute2/sum(contribute2, na.rm = TRUE))
+
+#Sum all indirect regulations for each year
+indirect_regulations2 <- indirect_regulations %>% 
+  group_by(date, industry_code) %>% 
+  mutate(total_indirect1 = sum(indirect_regulations, na.rm = TRUE), 
+         total_indirect2 = sum(indirect_regulations2, na.rm = TRUE))
+
+indirect_regulations2 <- indirect_regulations2[,c("industry_code", "date", "total_indirect1", "total_indirect2")]
+indirect_regulations2 <- unique(indirect_regulations2)
+indirect_regulations2$industry_code <- as.integer(indirect_regulations2$industry_code)
+
+
+indirect_regulations3 <- inner_join(indirect_regulations2, fig1, by = c("industry_code", "date"))
+
+
+indirect_regulations3 <- indirect_regulations3 %>% mutate(total_overall1 = total_regulations + total_indirect1, 
+                                                          total_overall2 = total_regulations + total_indirect2)
+
+indirect_regulations3$date <- as.Date(indirect_regulations3$date) 
+#Average data
+average_data <- indirect_regulations3 %>%
+  group_by(date, sector) %>%
+  summarise(average1 = mean(total_overall1, na.rm = TRUE), 
+           average2 = mean(total_overall2, na.rm = TRUE))
+
+average_data$date <- as.Date(average_data$date)
+
+s2 <- indirect_regulations3 %>%
+  ggplot() + 
+  geom_line(aes(x = date, y = total_overall1, group = industry_name, color = sector), alpha = 0.2, size = 0.5) + 
+  geom_line(data = average_data , aes(x = date, y = jitter(average1), color = sector), alpha = 1, size = 0.5) + 
+  scale_color_manual(values = custom_colors) + 
+  ylab("Total Regulations (Direct + Indirect)") + 
+  xlab("Year") +
+  scale_x_date(date_labels = "%Y", breaks = seq(as.Date("1970-01-01"), max(fig1$date), by = '10 years')) +
+  theme_bw() + 
+  scale_y_continuous(labels = comma) +
+  theme(legend.position = "none",
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 18), 
+        legend.text = element_text(size = 12), 
+        plot.caption =  element_text(hjust = 0)) + #change legend text font size
+  labs(color = "Food Sector") +
+  labs(caption = str_wrap("Total regulations over time, including direct and indirect regulations. (A) Represents the multiplicative approach, where indirect regulations are weighted based on their fractional contribution to gross domestic product (GDP). (B) Represents the additive approach where regulations from every input industry are added together. Note that with this approach Hunting and Trapping and Fishing have a very similar number of total regulations, which result in near overlapping lines.", 120, whitespace_only = FALSE))
+
+        
+  
+#Add position = position_jitter(width = 0, height = 50000)#fig1Add position = position_jitter(width = 0, height = 50000)
+
+s3 <- indirect_regulations3 %>%
+  ggplot() + 
+  geom_line(aes(x = date, y = total_overall2, group = industry_name, color = sector), alpha = 0.2, size = 0.5) + 
+  geom_line(data = average_data , aes(x = date, y = jitter(average2), color = sector), alpha = 1, size = 0.5) + 
+  scale_color_manual(values = custom_colors) + 
+  ylab("Total Regulations (Direct + Indirect)") + 
+  xlab("Year") +
+  scale_x_date(date_labels = "%Y", breaks = seq(as.Date("1970-01-01"), max(fig1$date), by = '10 years')) +
+  theme_bw() + 
+  scale_y_continuous(labels = comma) +
+  theme(legend.position = c(.05, .95),
+        legend.justification = c("left", "top"),
+        legend.box.just = "left",
+        legend.margin = margin(1,1,1,1),
+        legend.key.size = unit(1, 'cm'), #change legend key size
+        legend.key.height = unit(0.25, 'cm'), #change legend key height
+        legend.key.width = unit(0.25, 'cm'), #change legend key width
+        legend.title = element_text(size=12, face = "bold"), #change legend title font size
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 18), 
+        legend.text = element_text(size = 12)) + #change legend text font size
+  labs(color = "Food Sector") 
+
+s2_final <- ggarrange(s3, s2 + rremove("ylab"), 
+          labels = c("A", "B"),
+          ncol = 1, nrow = 2)
+
+ggsave("FigS2_final_w_caption.pdf", s2_final, width = 8, height = 12, dpi = 300) 
+
+
+```
+
+#Figure S3: Environmental Footprint vs Regulations
+```{r}
+
+#Direct regs vs. environmental footprint w/ error bars
+S4a <-  footprint %>% ggplot() + 
+  geom_point(aes(x = ghg_median, y =total_regulations, shape = author, color = sector), alpha = 0.2, size =4) +
+  geom_errorbarh(aes(xmin=ghg_5, xmax=ghg_95, y = total_regulations, color = sector, height = 2000), alpha = 0.2)  +
+  theme_bw() + 
+  scale_shape_manual(values = c("circle", "square")) +
+    scale_color_manual(values = custom_colors) +
+ theme(legend.position = "none",
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 18), 
+        legend.text = element_text(size = 12)) +
+  xlab(expression("Emissions (kg CO"[2]*"e/kg Product)")) + 
+  ylab("Direct Regulations") + 
+    scale_y_continuous(labels = comma) 
+
+S4b <-  footprint %>% ggplot() + 
+  geom_point(aes(x = ghg_median, y =env_regulations, shape = author, color = sector), alpha = 0.2, size =4) +
+  geom_errorbarh(aes(xmin=ghg_5, xmax=ghg_95, y = env_regulations, color = sector, height = 500), alpha = 0.2) +
+  theme_bw() + 
+  scale_shape_manual(values = c("circle", "square")) +
+    scale_color_manual(values = custom_colors) +
+ theme(legend.position = c(0.6, .95),
+        legend.justification = c("left", "top"),
+        legend.box.just = "left",
+        legend.margin = margin(1,1,1,1),
+        legend.key.size = unit(1, 'cm'), #change legend key size
+        legend.key.height = unit(0.25, 'cm'), #change legend key height
+        legend.key.width = unit(0.25, 'cm'), #change legend key width
+        legend.title = element_text(size=12, face = "bold"), #change legend title font size
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 18), 
+        legend.text = element_text(size = 12)) +
+  xlab(expression("Emissions (kg CO"[2]*"e/kg Product)")) + 
+  ylab("Direct Environmental Regulations") + 
+    scale_y_continuous(labels = comma) 
+
+S4c <-  footprint %>% ggplot() + 
+  geom_point(aes(x = ghg_median, y =total_overall1, shape = author, color = sector), alpha = 0.2, size =4) +
+  geom_errorbarh(aes(xmin=ghg_5, xmax=ghg_95, y = total_overall1, color = sector, height = 10^5), alpha = 0.2) +
+  theme_bw() + 
+  scale_shape_manual(values = c("circle", "square")) +
+    scale_color_manual(values = custom_colors) +
+  theme(legend.position = "none", 
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 18), 
+        legend.text = element_text(size = 12)) +
+  xlab(expression("Emissions (kg CO"[2]*"e/kg Product)")) + 
+  ylab("Total Regulations (Direct + Indirect)") + 
+    scale_y_continuous(labels = comma) 
+
+S4d <-  footprint %>% ggplot() + 
+  geom_point(aes(x = ghg_median, y =total_overall2, shape = author, color = sector), alpha = 0.2, size =4) +
+  geom_errorbarh(aes(xmin=ghg_5, xmax=ghg_95, y = total_overall2, color = sector, height = 1000), alpha = 0.2) +
+  theme_bw() + 
+  scale_shape_manual(values = c("circle", "square")) +
+    scale_color_manual(values = custom_colors) +
+  theme(legend.position = "none", 
+        axis.text = element_text(size = 12), 
+        axis.title = element_text(size = 18), 
+        legend.text = element_text(size = 12)) +
+  xlab(expression("Emissions (kg CO"[2]*"e/kg Product)")) + 
+  ylab("Total Regulations (Direct + Indirect)") + 
+    scale_y_continuous(labels = comma) 
+
+s4_final <- ggarrange(S4a, S4b, S4c, S4d,
+          labels = c("A", "B", "C", "D"),
+          ncol = 2, nrow = 2)
+
+
+ggsave("FigS3_final.png", s4_final,width = 16, height = 12, dpi = 300)
+```
+
+#Figure S4: Direct Regulations by Federal Agency for Food Industries
+```{r}
+
+figs4 <- fig2 %>% filter(substr(industry_code, 1,2) == 11)
+
+figs4 <- figs4 %>% group_by(industry_code) %>%
+  mutate(pt_reg = total_regulations/sum(total_regulations, na.rm = TRUE)*100)
+
+s1 <- figs4 %>% filter(pt_reg > 1) %>%
+  ggplot(aes(x = as.factor(industry_code), y = agency, fill = sector))+
+  geom_tile(aes(alpha = pt_reg), color = "white") + 
+  theme_bw() +
+  scale_fill_manual(values = custom_colors, na.value = 'white') +
+  scale_alpha_continuous(range = c(0,1)) +
+  scale_y_discrete(limits=rev) + # labels = label_wrap(40)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        legend.position = "bottom",
+        legend.justification = c("center", "top"),
+        legend.margin = margin(1,1,1,1),
+        legend.key.size = unit(1, 'cm'), #change legend key size
+        legend.key.height = unit(2, 'cm'), #change legend key height
+        legend.key.width = unit(2, 'cm'), #change legend key width
+        legend.title = element_text(size=40, face = "bold"), #change legend title font size
+        axis.text = element_text(size = 30), 
+        axis.title = element_text(size = 45), 
+        legend.text = element_text(size = 45), #change legend text font size
+        legend.box = "vertical") +  
+  xlab("Industry (2007 NAICS Code)") + 
+  ylab("Federal Government Agency") + 
+  labs(fill = "Food Sector", alpha = "Percent of Total Direct Regulations") +
+  coord_equal()
+
+
+ ggsave("FigS4_final.png", s1, width = 50, height = 40, dpi = 300, limitsize = FALSE) 
+```
+
+#Figure S5: Direct regulations by CFR Title for Food Industries
+```{r}
+figs5 <- inner_join(read_xlsx("Supplementary_Data_1.xlsx", "Figure S5",  trim_ws = F),
+                   read_xlsx("Supplementary_Data_1.xlsx", "Food Industries",  trim_ws = F), 
+                   by = "industry_code")
+
+figs5  <- figs5 %>% mutate(title_whole = paste0("Title ", title_number, ": ", title_description))
+
+figs5  <- figs5 %>% group_by(industry_code) %>%
+  mutate(pt_reg = total_regulations / sum(total_regulations, na.rm = TRUE)*100)
+
+figs5  <- figs5[order(figs5$title_number),]
+
+s1 <- figs5 %>% 
+  mutate(title_whole = fct_reorder(title_whole, title_number)) %>%
+  ggplot(aes(x = as.factor(industry_code), y = title_whole, fill = sector)) + 
+  geom_tile(aes(alpha = pt_reg), color = "white") + 
+  theme_bw() +
+  scale_fill_manual(values = custom_colors, na.value = 'white') +
+  scale_alpha_continuous(range = c(0,1)) +
+  scale_y_discrete(limits=rev) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1),
+        legend.position = "bottom",
+        legend.justification = c("center", "top"),
+        legend.margin = margin(1,1,1,1),
+        legend.key.size = unit(1, 'cm'), #change legend key size
+        legend.key.height = unit(2, 'cm'), #change legend key height
+        legend.key.width = unit(2, 'cm'), #change legend key width
+        legend.title = element_text(size=30, face = "bold"), #change legend title font size
+        axis.text = element_text(size =30), 
+        axis.title = element_text(size = 40), 
+        legend.text = element_text(size = 40), #change legend text font size
+        legend.box = "vertical") +  #change legend text font size
+  xlab("Industry (2007 NAICS Code)") + 
+  ylab("Code of Federal Regulations Title") + 
+  labs(fill = "Food Sector", alpha = "Percent of Total Direct Regulations") +
+  coord_equal()
+
+
+ ggsave("FigS5_final.png", s1, width = 40, height = 30, dpi = 300) 
+```
